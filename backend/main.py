@@ -56,6 +56,13 @@ async def health_check():
     """ヘルスチェック用エンドポイント"""
     return {"status": "ok", "message": "Backend is running"}
 
+@app.get("/api/config")
+async def get_config():
+    """フロントエンド用の設定を返す"""
+    return {
+        "github_client_id": os.getenv("GITHUB_CLIENT_ID")
+    }
+
 @app.get("/api/auth/callback")
 async def auth_callback(code: str = None, error: str = None):
     """GitHubからのコールバック処理"""

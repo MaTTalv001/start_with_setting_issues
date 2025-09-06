@@ -107,21 +107,28 @@ function App() {
     }
   };
 
-  const handleGithubLogin = () => {
-    const clientId = import.meta.env.VITE_GITHUB_CLIENT_ID;
-    if (!clientId) {
-      setError("GitHub Client IDが設定されていません");
-      return;
+  const handleGithubLogin = async () => {
+    // バックエンドからGitHub Client IDを取得
+    try {
+      const response = await fetch("/api/config");
+      const config = await response.json();
+      const clientId = config.github_client_id;
+
+      if (!clientId) {
+        setError("GitHub Client IDが設定されていません");
+        return;
+      }
+
+      const baseUrl = window.location.origin;
+      const redirectUri = `${baseUrl}/api/auth/callback`;
+      const scope = "user:email repo";
+      const state = Math.random().toString(36).substring(7);
+
+      const githubAuthUrl = `https://github.com/login/oauth/authorize?client_id=${clientId}&redirect_uri=${redirectUri}&scope=${scope}&state=${state}`;
+      window.location.href = githubAuthUrl;
+    } catch (error) {
+      setError("設定の取得に失敗しました");
     }
-
-    // 本番環境のURL取得
-    const baseUrl = window.location.origin;
-    const redirectUri = `${baseUrl}/api/auth/callback`;
-    const scope = "user:email repo";
-    const state = Math.random().toString(36).substring(7);
-
-    const githubAuthUrl = `https://github.com/login/oauth/authorize?client_id=${clientId}&redirect_uri=${redirectUri}&scope=${scope}&state=${state}`;
-    window.location.href = githubAuthUrl;
   };
 
   const handleLogout = async () => {
