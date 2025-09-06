@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 from dotenv import load_dotenv
 from fastapi import FastAPI, Request, HTTPException, status
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
@@ -31,9 +32,12 @@ app.add_middleware(
 )
 
 # 静的ファイルが存在する場合のみマウント
-static_dir = "static"
-if os.path.exists(static_dir):
-    app.mount("/assets", StaticFiles(directory="static/assets"), name="assets")
+static_dir = Path(__file__).parent / "static"
+if static_dir.exists():
+    app.mount("/assets", StaticFiles(directory=str(static_dir / "assets")), name="assets")
+    print(f"Static files mounted from: {static_dir}")
+else:
+    print(f"Static directory not found: {static_dir}")
 
 # 環境変数から本番/開発判定
 IS_PRODUCTION = os.getenv("RENDER") is not None  # Renderの場合
@@ -240,11 +244,15 @@ async def logout():
 @app.get("/{full_path:path}", response_class=HTMLResponse)
 async def serve_spa(full_path: str):
     """SPAのindex.htmlを返す"""
-    index_file = "static/index.html"
-    if os.path.exists(index_file):
+    index_file = static_dir / "index.html"
+    
+    if index_file.exists():
+        print(f"Serving index.html from: {index_file}")
         with open(index_file, "r", encoding="utf-8") as f:
-            return HTMLResponse(content=f.read())
+            content = f.read()
+        return HTMLResponse(content=content)
     else:
+        print(f"index.html not found at: {index_file}")
         return HTMLResponse(content="""
         <!DOCTYPE html>
         <html>
@@ -253,8 +261,26 @@ async def serve_spa(full_path: str):
         </head>
         <body>
             <h1>FastAPI Server is Running!</h1>
-            <p>Frontend build not found. Please run 'npm run build' in the frontend directory.</p>
-            <p>API Test: <a href="/api/health">/api/health</a></p>
+            <p>Frontend build not found. Please check the build process.</p>
+            <p>Static directory: {}</p>
+            <p>Looking for: {}</p>
         </body>
         </html>
-        """)
+        """.format(static_dir, index_file))
+    
+@app.get("/api/debug")
+async def debug_info():
+    """デバッグ情報を返す"""
+    static_exists = os.path.exists("static")
+    index_exists = os.path.exists("static/index.html")
+    assets_exists = os.path.exists("static/assets")
+    
+    return {
+        "static_dir_exists": static_exists,
+        "index_html_exists": index_exists,
+        "assets_dir_exists": assets_exists,
+        "github_client_id_set": bool(os.getenv("GITHUB_CLIENT_ID")),
+        "openai_api_key_set": bool(os.getenv("OPENAI_API_KEY")),
+        "current_directory": os.getcwd(),
+        "static_files": os.listdir("static") if static_exists else []
+    }

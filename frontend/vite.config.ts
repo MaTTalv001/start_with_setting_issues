@@ -7,6 +7,7 @@ export default defineConfig({
     outDir: "../backend/static",
     emptyOutDir: true,
   },
+  base: "/",
   server: {
     proxy: {
       "/api": {

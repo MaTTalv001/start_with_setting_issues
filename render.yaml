@@ -3,8 +3,11 @@ services:
     name: github-issue-maker
     env: python
     buildCommand: |
-      cd frontend && npm install && npm run build &&
-      cd ../backend && pip install -r requirements.txt
+      cd frontend && 
+      npm install && 
+      npm run build && 
+      cd ../backend && 
+      pip install -r requirements.txt
     startCommand: cd backend && python -m uvicorn main:app --host 0.0.0.0 --port $PORT
     envVars:
       - key: GITHUB_CLIENT_ID
@@ -14,4 +17,6 @@ services:
       - key: SECRET_KEY
         sync: false
       - key: OPENAI_API_KEY
+        sync: false
+      - key: VITE_GITHUB_CLIENT_ID
         sync: false
