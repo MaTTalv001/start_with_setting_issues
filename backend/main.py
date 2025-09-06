@@ -3,6 +3,7 @@ from dotenv import load_dotenv
 from fastapi import FastAPI, Request, HTTPException, status
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
+from fastapi.middleware.cors import CORSMiddleware
 from datetime import timedelta
 from pydantic import BaseModel
 from auth import (
@@ -18,13 +19,25 @@ from llm_service import generate_issues_from_markdown, SAMPLE_MARKDOWN
 
 load_dotenv()
 
-app = FastAPI(title="GitHub Issue Maker")
+app = FastAPI(title="イシューから定めよ")
+
+# CORS設定（本番環境用）
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # 本番では具体的なドメインを指定することを推奨
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # 静的ファイルが存在する場合のみマウント
 static_dir = "static"
 if os.path.exists(static_dir):
     app.mount("/assets", StaticFiles(directory="static/assets"), name="assets")
 
+# 環境変数から本番/開発判定
+IS_PRODUCTION = os.getenv("RENDER") is not None  # Renderの場合
+BASE_URL = os.getenv("RENDER_EXTERNAL_URL", "http://localhost:8000")
 class CreateIssueRequest(BaseModel):
     repository: str
     title: str
@@ -74,7 +87,7 @@ async def auth_callback(code: str = None, error: str = None):
             httponly=True,
             max_age=ACCESS_TOKEN_EXPIRE_MINUTES * 60,
             samesite="lax",
-            secure=False  # 開発時はHTTPなのでFalse
+            secure=IS_PRODUCTION  # 本番環境ではHTTPS必須
         )
         
         return response

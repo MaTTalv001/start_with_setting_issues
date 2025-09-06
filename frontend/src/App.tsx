@@ -114,7 +114,9 @@ function App() {
       return;
     }
 
-    const redirectUri = `http://localhost:8000/api/auth/callback`;
+    // 本番環境のURL取得
+    const baseUrl = window.location.origin;
+    const redirectUri = `${baseUrl}/api/auth/callback`;
     const scope = "user:email repo";
     const state = Math.random().toString(36).substring(7);
 
