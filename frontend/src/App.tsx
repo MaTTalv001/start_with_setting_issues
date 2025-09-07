@@ -32,6 +32,7 @@ function App() {
   const [selectedIssues, setSelectedIssues] = useState<Set<number>>(new Set());
   const [loadingRepos, setLoadingRepos] = useState(false);
   const [creatingIssues, setCreatingIssues] = useState(false);
+  const [howToUseModal, setHowToUseModal] = useState(false);
 
   // LLM関連の状態
   const [generatedIssues, setGeneratedIssues] = useState<GeneratedIssue[]>([]);
@@ -457,19 +458,6 @@ function App() {
   if (!user) {
     return (
       <div className="min-h-screen bg-base-200">
-        {/* <div className="navbar bg-base-100 shadow-lg">
-          <div className="navbar-start">
-            <span className="btn btn-ghost normal-case text-xl">
-              🤖 AI Issue Maker
-            </span>
-          </div>
-          <div className="navbar-end">
-            <button className="btn btn-primary" onClick={handleGithubLogin}>
-              GitHubログイン
-            </button>
-          </div>
-        </div> */}
-
         <div className="hero min-h-screen bg-white">
           <div className="hero-content text-center">
             <div className="max-w-2xl px-8">
@@ -526,6 +514,12 @@ function App() {
         </div>
 
         <div className="navbar-end">
+          <button
+            className="btn btn-ghost btn-sm mr-4"
+            onClick={() => setHowToUseModal(true)}
+          >
+            アプリの使い方
+          </button>
           <div className="dropdown dropdown-end">
             <label tabIndex={0} className="btn btn-ghost btn-circle avatar">
               <div className="w-10 rounded-full">
@@ -559,10 +553,13 @@ function App() {
           </div>
         )}
 
-        {/* Repository Selection */}
+        {/* Step 1: Repository Selection */}
         <div className="card bg-base-100 shadow-xl mb-6">
           <div className="card-body">
-            <h2 className="card-title mb-4">📂 リポジトリを選択</h2>
+            <h2 className="card-title mb-4">
+              <span className="badge badge-primary">1</span>
+              イシューを登録するリポジトリを選択してください
+            </h2>
 
             {loadingRepos ? (
               <div className="flex items-center gap-2">
@@ -614,323 +611,355 @@ function App() {
           </div>
         </div>
 
-        {/* Markdown Input and Generation */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-          <div className="card bg-base-100 shadow-xl">
-            <div className="card-body">
-              <h3 className="card-title">📝 要件定義書</h3>
-              <p className="text-sm text-gray-600 mb-4">
-                プロジェクトの要件をMarkdown形式で入力またはファイルアップロードしてください。
-              </p>
-
-              {/* ファイルアップロードエリア */}
-              <div className="mb-4">
-                <div
-                  className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors cursor-pointer ${
-                    isDragging
-                      ? "border-primary bg-primary/10"
-                      : "border-gray-300 hover:border-primary hover:bg-primary/5"
-                  }`}
-                  onDragOver={handleDragOver}
-                  onDragLeave={handleDragLeave}
-                  onDrop={handleDrop}
-                  onClick={() =>
-                    document.getElementById("file-upload")?.click()
-                  }
-                >
-                  <input
-                    id="file-upload"
-                    type="file"
-                    accept=".md,.txt,.markdown"
-                    onChange={handleFileSelect}
-                    className="hidden"
-                  />
-                  <div className="flex flex-col items-center gap-2">
-                    <svg
-                      className="w-8 h-8 text-gray-400"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
-                      />
-                    </svg>
-                    <p className="text-sm text-gray-600">
-                      <span className="font-medium">
-                        クリックしてファイルを選択
-                      </span>
-                      または ドラッグ&ドロップ
-                    </p>
-                    <p className="text-xs text-gray-500">
-                      対応形式: .md, .txt, .markdown (最大 5MB)
-                    </p>
-                  </div>
-                </div>
-
-                {uploadError && (
-                  <div className="alert alert-error mt-2">
-                    <span className="text-sm">{uploadError}</span>
-                  </div>
-                )}
-              </div>
-
-              {/* テキストエリア */}
-              <textarea
-                className="textarea textarea-bordered w-full h-64 font-mono text-sm"
-                placeholder="要件をMarkdown形式で入力するか、上記からファイルをアップロードしてください..."
-                value={markdownContent}
-                onChange={(e) => setMarkdownContent(e.target.value)}
-              />
-
-              {/* アクションボタン */}
-              <div className="flex flex-wrap gap-2 mt-4">
-                <button
-                  className="btn btn-ghost btn-sm"
-                  onClick={loadSampleContent}
-                  disabled={!sampleMarkdown}
-                >
-                  📄 サンプル要件を読み込み
-                </button>
-                <button
-                  className="btn btn-ghost btn-sm"
-                  onClick={clearContent}
-                  disabled={!markdownContent.trim()}
-                >
-                  🗑️ クリア
-                </button>
-                <div className="flex-1"></div>
-                <button
-                  className="btn btn-primary"
-                  onClick={generateIssues}
-                  disabled={
-                    generatingIssues || !markdownContent.trim() || !selectedRepo
-                  }
-                >
-                  {generatingIssues ? (
-                    <>
-                      <span className="loading loading-spinner loading-sm"></span>
-                      生成中...
-                    </>
-                  ) : (
-                    "🚀 イシューを生成"
-                  )}
-                </button>
-              </div>
-
-              {/* 文字カウント */}
-              {markdownContent && (
-                <div className="text-xs text-gray-500 mt-2 text-right">
-                  文字数: {markdownContent.length}
-                </div>
-              )}
-            </div>
-          </div>
-
-          <div className="card bg-base-100 shadow-xl">
-            <div className="card-body">
-              <h3 className="card-title">ℹ️ 使い方</h3>
-              <div className="space-y-3">
-                <div className="flex items-start gap-3">
-                  <div className="badge badge-primary">1</div>
-                  <div>
-                    <h4 className="font-semibold">リポジトリを選択</h4>
-                    <p className="text-sm text-gray-600">
-                      イシューを作成したいGitHubリポジトリを選択します
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex items-start gap-3">
-                  <div className="badge badge-primary">2</div>
-                  <div>
-                    <h4 className="font-semibold">要件を入力</h4>
-                    <p className="text-sm text-gray-600">
-                      手動入力またはファイルアップロードで要件を設定
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex items-start gap-3">
-                  <div className="badge badge-primary">3</div>
-                  <div>
-                    <h4 className="font-semibold">生成・選択</h4>
-                    <p className="text-sm text-gray-600">
-                      AIがイシューを生成し、作成したいものを選択します
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex items-start gap-3">
-                  <div className="badge badge-primary">4</div>
-                  <div>
-                    <h4 className="font-semibold">イシュー作成</h4>
-                    <p className="text-sm text-gray-600">
-                      選択したイシューをリポジトリに作成します
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {/* ファイル形式の説明 */}
-              <div className="divider"></div>
-              <div className="alert alert-info">
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  className="stroke-current shrink-0 w-6 h-6"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth="2"
-                    d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                  ></path>
-                </svg>
-                <div>
-                  <h3 className="font-bold">対応ファイル形式</h3>
-                  <div className="text-xs">
-                    .md, .txt, .markdown
-                    <br />
-                    最大ファイルサイズ: 5MB
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Generated Issues */}
-        {generatedIssues.length > 0 && (
-          <div className="card bg-base-100 shadow-xl">
-            <div className="card-body">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="card-title">
-                  🎯 生成されたイシュー ({generatedIssues.length})
+        {/* Step 2 & 3: Requirements Input and Issue Generation (Only show when repo is selected) */}
+        {selectedRepo && (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+            {/* Step 2: Requirements Input */}
+            <div className="card bg-base-100 shadow-xl">
+              <div className="card-body">
+                <h3 className="card-title mb-4">
+                  <span className="badge badge-primary">2</span>
+                  イシューの元となる要件情報を入力してください
                 </h3>
-                <div className="flex gap-2">
-                  <button
-                    className="btn btn-ghost btn-sm"
-                    onClick={selectAllIssues}
-                  >
-                    {selectedIssues.size === generatedIssues.length
-                      ? "すべて解除"
-                      : "すべて選択"}
-                  </button>
-                  <button
-                    className="btn btn-primary btn-sm"
-                    onClick={createSelectedIssues}
-                    disabled={
-                      selectedIssues.size === 0 ||
-                      creatingIssues ||
-                      !selectedRepo
+
+                {/* ファイルアップロードエリア */}
+                <div className="mb-4">
+                  <div
+                    className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors cursor-pointer ${
+                      isDragging
+                        ? "border-primary bg-primary/10"
+                        : "border-gray-300 hover:border-primary hover:bg-primary/5"
+                    }`}
+                    onDragOver={handleDragOver}
+                    onDragLeave={handleDragLeave}
+                    onDrop={handleDrop}
+                    onClick={() =>
+                      document.getElementById("file-upload")?.click()
                     }
                   >
-                    {creatingIssues ? (
-                      <>
-                        <span className="loading loading-spinner loading-sm"></span>
-                        作成中...
-                      </>
-                    ) : (
-                      `選択したイシューを作成 (${selectedIssues.size})`
-                    )}
-                  </button>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {generatedIssues.map((issue, index) => (
-                  <div
-                    key={index}
-                    className={`card cursor-pointer transition-all border-2 hover:shadow-lg ${
-                      selectedIssues.has(index)
-                        ? "border-primary bg-primary/10"
-                        : "border-base-300 bg-base-100 hover:border-primary/50"
-                    }`}
-                    onClick={() => openPreviewModal(issue, index)}
-                  >
-                    <div className="card-body p-4">
-                      <div className="flex items-start justify-between mb-2">
-                        <h4 className="card-title text-base leading-tight flex-1 pr-2">
-                          {issue.title}
-                        </h4>
-                        <div className="flex items-center gap-1">
-                          <button
-                            className="btn btn-ghost btn-xs p-1"
-                            onClick={(e) => openEditModal(issue, index, e)}
-                            title="編集"
-                          >
-                            <svg
-                              xmlns="http://www.w3.org/2000/svg"
-                              fill="none"
-                              viewBox="0 0 24 24"
-                              strokeWidth={1.5}
-                              stroke="currentColor"
-                              className="w-4 h-4"
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10"
-                              />
-                            </svg>
-                          </button>
-                          <input
-                            type="checkbox"
-                            className="checkbox checkbox-primary checkbox-sm"
-                            checked={selectedIssues.has(index)}
-                            onChange={(e) => toggleIssueSelection(index, e)}
-                            onClick={(e) => e.stopPropagation()}
-                          />
-                        </div>
-                      </div>
-
-                      <div className="flex flex-wrap gap-1 mb-2">
-                        {issue.labels.map((label) => (
-                          <div
-                            key={label}
-                            className="badge badge-outline badge-sm"
-                          >
-                            {label}
-                          </div>
-                        ))}
-                        {issue.priority && (
-                          <div className="badge badge-secondary badge-sm">
-                            優先度{issue.priority}
-                          </div>
-                        )}
-                      </div>
-
-                      <p className="text-sm text-gray-600 line-clamp-3">
-                        {issue.body.split("\n")[0]}
+                    <input
+                      id="file-upload"
+                      type="file"
+                      accept=".md,.txt,.markdown"
+                      onChange={handleFileSelect}
+                      className="hidden"
+                    />
+                    <div className="flex flex-col items-center gap-2">
+                      <svg
+                        className="w-8 h-8 text-gray-400"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
+                        />
+                      </svg>
+                      <p className="text-sm text-gray-600">
+                        <span className="font-medium">
+                          クリックしてファイルを選択
+                        </span>
+                        または ドラッグ&ドロップ
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        対応形式: .md, .txt, .markdown (最大 5MB)
                       </p>
                     </div>
                   </div>
-                ))}
-              </div>
 
-              {selectedIssues.size > 0 && (
-                <div className="mt-4 p-4 bg-primary/10 rounded-lg">
-                  <h4 className="font-semibold mb-2">選択中のイシュー</h4>
-                  <ul className="text-sm space-y-1">
-                    {Array.from(selectedIssues).map((index) => (
-                      <li key={index} className="flex items-center gap-2">
-                        <span className="w-2 h-2 bg-primary rounded-full"></span>
-                        {generatedIssues[index].title}
-                      </li>
-                    ))}
-                  </ul>
+                  {uploadError && (
+                    <div className="alert alert-error mt-2">
+                      <span className="text-sm">{uploadError}</span>
+                    </div>
+                  )}
                 </div>
-              )}
+
+                {/* テキストエリア */}
+                <textarea
+                  className="textarea textarea-bordered w-full h-64 font-mono text-sm"
+                  placeholder="要件をMarkdown形式で入力するか、上記からファイルをアップロードしてください..."
+                  value={markdownContent}
+                  onChange={(e) => setMarkdownContent(e.target.value)}
+                />
+
+                {/* アクションボタン */}
+                <div className="flex flex-wrap gap-2 mt-4">
+                  <button
+                    className="btn btn-ghost btn-sm"
+                    onClick={loadSampleContent}
+                    disabled={!sampleMarkdown}
+                  >
+                    サンプル要件を読み込み
+                  </button>
+                  <button
+                    className="btn btn-ghost btn-sm"
+                    onClick={clearContent}
+                    disabled={!markdownContent.trim()}
+                  >
+                    クリア
+                  </button>
+                  <div className="flex-1"></div>
+                  <button
+                    className="btn btn-primary"
+                    onClick={generateIssues}
+                    disabled={
+                      generatingIssues ||
+                      !markdownContent.trim() ||
+                      !selectedRepo
+                    }
+                  >
+                    {generatingIssues ? (
+                      <>
+                        <span className="loading loading-spinner loading-sm"></span>
+                        生成中...
+                      </>
+                    ) : (
+                      "イシューを生成"
+                    )}
+                  </button>
+                </div>
+
+                {/* 文字カウント */}
+                {markdownContent && (
+                  <div className="text-xs text-gray-500 mt-2 text-right">
+                    文字数: {markdownContent.length}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Step 3: Generated Issues */}
+            <div className="card bg-base-100 shadow-xl">
+              <div className="card-body">
+                <h3 className="card-title mb-4">
+                  <span className="badge badge-primary">3</span>
+                  イシューを編集・選択してリポジトリに登録してください
+                </h3>
+
+                {generatedIssues.length === 0 ? (
+                  <div className="text-center py-8 text-gray-500">
+                    <p>要件情報を入力してイシューを生成してください</p>
+                  </div>
+                ) : (
+                  <>
+                    <div className="flex items-center justify-between mb-4">
+                      <span className="text-sm text-gray-600">
+                        生成されたイシュー: {generatedIssues.length}個
+                      </span>
+                      <div className="flex gap-2">
+                        <button
+                          className="btn btn-ghost btn-sm"
+                          onClick={selectAllIssues}
+                        >
+                          {selectedIssues.size === generatedIssues.length
+                            ? "すべて解除"
+                            : "すべて選択"}
+                        </button>
+                        <button
+                          className="btn btn-primary btn-sm"
+                          onClick={createSelectedIssues}
+                          disabled={
+                            selectedIssues.size === 0 ||
+                            creatingIssues ||
+                            !selectedRepo
+                          }
+                        >
+                          {creatingIssues ? (
+                            <>
+                              <span className="loading loading-spinner loading-sm"></span>
+                              作成中...
+                            </>
+                          ) : (
+                            `選択したイシューを作成 (${selectedIssues.size})`
+                          )}
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="space-y-3 max-h-96 overflow-y-auto">
+                      {generatedIssues.map((issue, index) => (
+                        <div
+                          key={index}
+                          className={`card cursor-pointer transition-all border-2 hover:shadow-lg ${
+                            selectedIssues.has(index)
+                              ? "border-primary bg-primary/10"
+                              : "border-base-300 bg-base-100 hover:border-primary/50"
+                          }`}
+                          onClick={() => openPreviewModal(issue, index)}
+                        >
+                          <div className="card-body p-4">
+                            <div className="flex items-start justify-between mb-2">
+                              <h4 className="card-title text-sm leading-tight flex-1 pr-2">
+                                {issue.title}
+                              </h4>
+                              <div className="flex items-center gap-1">
+                                <button
+                                  className="btn btn-ghost btn-xs p-1"
+                                  onClick={(e) =>
+                                    openEditModal(issue, index, e)
+                                  }
+                                  title="編集"
+                                >
+                                  <svg
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    fill="none"
+                                    viewBox="0 0 24 24"
+                                    strokeWidth={1.5}
+                                    stroke="currentColor"
+                                    className="w-4 h-4"
+                                  >
+                                    <path
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                      d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10"
+                                    />
+                                  </svg>
+                                </button>
+                                <input
+                                  type="checkbox"
+                                  className="checkbox checkbox-primary checkbox-sm"
+                                  checked={selectedIssues.has(index)}
+                                  onChange={(e) =>
+                                    toggleIssueSelection(index, e)
+                                  }
+                                  onClick={(e) => e.stopPropagation()}
+                                />
+                              </div>
+                            </div>
+
+                            <div className="flex flex-wrap gap-1 mb-2">
+                              {issue.labels.map((label) => (
+                                <div
+                                  key={label}
+                                  className="badge badge-outline badge-xs"
+                                >
+                                  {label}
+                                </div>
+                              ))}
+                              {issue.priority && (
+                                <div className="badge badge-secondary badge-xs">
+                                  優先度{issue.priority}
+                                </div>
+                              )}
+                            </div>
+
+                            <p className="text-xs text-gray-600 line-clamp-2">
+                              {issue.body.split("\n")[0]}
+                            </p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    {selectedIssues.size > 0 && (
+                      <div className="mt-4 p-3 bg-primary/10 rounded-lg">
+                        <h4 className="font-semibold mb-2 text-sm">
+                          選択中のイシュー
+                        </h4>
+                        <ul className="text-xs space-y-1">
+                          {Array.from(selectedIssues).map((index) => (
+                            <li key={index} className="flex items-center gap-2">
+                              <span className="w-1 h-1 bg-primary rounded-full"></span>
+                              {generatedIssues[index].title}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
             </div>
           </div>
         )}
       </div>
 
+      {/* How to Use Modal */}
+      {howToUseModal && (
+        <div className="modal modal-open">
+          <div className="modal-box max-w-2xl">
+            <h3 className="font-bold text-lg mb-4">アプリの使い方</h3>
+
+            <div className="mb-6">
+              <h4 className="font-semibold mb-2">このアプリの目的</h4>
+              <p className="text-sm text-gray-600 mb-4">
+                「イシューから定めよ」は、プロジェクトの要件定義からAIを活用してGitHubイシューを自動生成し、
+                効率的なプロジェクト管理を支援するツールです。要件をAIが適切な粒度のタスクに分解し、
+                開発チームが即座に作業を開始できる状態にします。
+              </p>
+            </div>
+
+            <div className="space-y-4">
+              <div className="flex items-start gap-3">
+                <div className="badge badge-primary">1</div>
+                <div>
+                  <h4 className="font-semibold">リポジトリを選択</h4>
+                  <p className="text-sm text-gray-600">
+                    イシューを作成したいGitHubリポジトリを選択します。選択後、次のステップが表示されます。
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-3">
+                <div className="badge badge-primary">2</div>
+                <div>
+                  <h4 className="font-semibold">要件情報を入力</h4>
+                  <p className="text-sm text-gray-600">
+                    プロジェクトの要件をMarkdown形式で入力するか、ファイルをアップロードします。
+                    詳細な要件ほど、より具体的なイシューが生成されます。
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-3">
+                <div className="badge badge-primary">3</div>
+                <div>
+                  <h4 className="font-semibold">イシューを編集・選択・登録</h4>
+                  <p className="text-sm text-gray-600">
+                    AIが生成したイシューを確認し、必要に応じて編集します。
+                    作成したいイシューを選択して、リポジトリに一括登録できます。
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="alert alert-info mt-6">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+                className="stroke-current shrink-0 w-6 h-6"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="2"
+                  d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                ></path>
+              </svg>
+              <div>
+                <h3 className="font-bold">対応ファイル形式</h3>
+                <div className="text-xs">.md, .txt, .markdown（最大5MB）</div>
+              </div>
+            </div>
+
+            <div className="modal-action">
+              <button className="btn" onClick={() => setHowToUseModal(false)}>
+                閉じる
+              </button>
+            </div>
+          </div>
+          <div
+            className="modal-backdrop"
+            onClick={() => setHowToUseModal(false)}
+          ></div>
+        </div>
+      )}
+
+      {/* 既存のPreview ModalとEdit Modalはそのまま */}
       {/* Preview Modal */}
       {previewModal.isOpen && previewModal.issue && (
         <div className="modal modal-open">

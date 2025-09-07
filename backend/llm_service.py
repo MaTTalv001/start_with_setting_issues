@@ -177,15 +177,16 @@ async def generate_issues_from_markdown(markdown_content: str) -> List[Dict]:
         print("Making OpenAI API call...")
         
         response = client.chat.completions.create(
-            model="gpt-4o",
+            #model="gpt-4o-2024-11-20",
+            model="gpt-5-chat-latest",
             messages=[
                 {
                     "role": "user", 
                     "content": ISSUE_GENERATION_PROMPT.format(markdown_content=markdown_content)
                 }
             ],
-            max_tokens=4000,
-            temperature=0.2,
+            #max_tokens=4000,
+            #temperature=0.2,
             response_format={"type": "json_object"}  # JSON modeを有効化
         )
         
