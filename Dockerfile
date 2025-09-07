@@ -25,7 +25,7 @@ COPY backend/ ./
 # フロントエンドのビルド結果をコピー
 COPY --from=frontend-build /app/backend/static ./static/
 
-# ポートを公開
+# ポート公開
 EXPOSE 8000
 
 # 起動コマンド
