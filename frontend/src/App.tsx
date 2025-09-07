@@ -457,7 +457,7 @@ function App() {
   if (!user) {
     return (
       <div className="min-h-screen bg-base-200">
-        <div className="navbar bg-base-100 shadow-lg">
+        {/* <div className="navbar bg-base-100 shadow-lg">
           <div className="navbar-start">
             <span className="btn btn-ghost normal-case text-xl">
               🤖 AI Issue Maker
@@ -468,31 +468,45 @@ function App() {
               GitHubログイン
             </button>
           </div>
-        </div>
+        </div> */}
 
-        <div className="hero min-h-screen bg-base-200">
+        <div className="hero min-h-screen bg-white">
           <div className="hero-content text-center">
-            <div className="max-w-2xl">
-              <h1 className="text-5xl font-bold">🤖 AI Issue Maker</h1>
-              <p className="py-6">
-                要件定義からAIを使ってGitHubイシューを自動生成！
-                GitHubでログインして始めましょう。
-              </p>
-              <div className="alert alert-info">
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  className="stroke-current shrink-0 w-6 h-6"
+            <div className="max-w-2xl px-8">
+              {/* 上部タイトル */}
+              <div className="mb-4">
+                <h1 className="text-3xl font-normal text-black mb-2">
+                  イシューから定めよ
+                </h1>
+                <p className="text-sm text-gray-600 font-light">
+                  要件定義からイシューを登録する
+                </p>
+              </div>
+
+              {/* 中央メインタイトル */}
+              <div className="my-16">
+                <h2 className="text-7xl font-black text-black leading-tight">
+                  ISSUE
+                  <br />
+                  SETTING
+                </h2>
+              </div>
+
+              {/* ログイン案内 */}
+              <div className="mb-8">
+                <button
+                  className="btn bg-black text-white border-black hover:bg-gray-800 hover:border-gray-800 px-8 py-3 text-base"
+                  onClick={handleGithubLogin}
                 >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth="2"
-                    d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                  ></path>
-                </svg>
-                <span>GitHubアカウントでログインしてください。</span>
+                  GitHubログイン
+                </button>
+              </div>
+
+              {/* 下部クレジット */}
+              <div className="mt-16">
+                <p className="text-xs text-gray-400 font-light">
+                  respect for 「イシューからはじめよ」
+                </p>
               </div>
             </div>
           </div>
@@ -507,7 +521,7 @@ function App() {
       <div className="navbar bg-base-100 shadow-lg">
         <div className="navbar-start">
           <span className="btn btn-ghost normal-case text-xl">
-            🤖 AI Issue Maker
+            IssueSetting
           </span>
         </div>
 
