@@ -1,20 +1,12 @@
-version: 1.0
-runtime: python3
-build:
-  commands:
-    build:
-      - echo "Building frontend..."
-      - cd frontend
-      - npm install
-      - npm run build
-      - echo "Installing backend dependencies..."
-      - cd ../backend
-      - pip install -r requirements.txt
-run:
-  runtime-version: 3.11
-  command: cd backend && python -m uvicorn main:app --host 0.0.0.0 --port 8000
-  network:
-    port: 8000
-  env:
-    - name: PORT
-      value: "8000"
+{
+  "$schema": "https://railway.app/railway.schema.json",
+  "build": {
+    "builder": "NIXPACKS"
+  },
+  "deploy": {
+    "startCommand": "cd backend && python -m uvicorn main:app --host 0.0.0.0 --port $PORT",
+    "healthcheckPath": "/api/health",
+    "healthcheckTimeout": 100,
+    "restartPolicyType": "ON_FAILURE"
+  }
+}
