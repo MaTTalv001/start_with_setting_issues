@@ -476,7 +476,7 @@ function App() {
                 <h2 className="text-7xl font-black text-black leading-tight">
                   ISSUE
                   <br />
-                  SETTING
+                  DEFINE
                 </h2>
               </div>
 
@@ -508,9 +508,7 @@ function App() {
       {/* Header */}
       <div className="navbar bg-base-100 shadow-lg">
         <div className="navbar-start">
-          <span className="btn btn-ghost normal-case text-xl">
-            IssueSetting
-          </span>
+          <span className="btn btn-ghost normal-case text-xl">IssueDefine</span>
         </div>
 
         <div className="navbar-end">
