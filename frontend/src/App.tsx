@@ -108,7 +108,6 @@ function App() {
   };
 
   const handleGithubLogin = async () => {
-    // バックエンドからGitHub Client IDを取得
     try {
       const response = await fetch("/api/config");
       const config = await response.json();

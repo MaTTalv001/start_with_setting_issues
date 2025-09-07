@@ -1,5 +1,4 @@
 import os
-from pathlib import Path
 from dotenv import load_dotenv
 from fastapi import FastAPI, Request, HTTPException, status
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
@@ -7,6 +6,8 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from datetime import timedelta
 from pydantic import BaseModel
+
+# 既存のインポート
 from auth import (
     exchange_code_for_token, 
     get_github_user, 
@@ -20,28 +21,25 @@ from llm_service import generate_issues_from_markdown, SAMPLE_MARKDOWN
 
 load_dotenv()
 
-app = FastAPI(title="イシューから定めよ")
+app = FastAPI(title="GitHub Issue Maker")
 
-# CORS設定（本番環境用）
+# Railway環境判定
+IS_PRODUCTION = os.getenv("RAILWAY_ENVIRONMENT") == "production"
+
+# CORS設定
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # 本番では具体的なドメインを指定することを推奨
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# 静的ファイルが存在する場合のみマウント
-static_dir = Path(__file__).parent / "static"
-if static_dir.exists():
-    app.mount("/assets", StaticFiles(directory=str(static_dir / "assets")), name="assets")
-    print(f"Static files mounted from: {static_dir}")
-else:
-    print(f"Static directory not found: {static_dir}")
+# 静的ファイル配信
+static_dir = "static"
+if os.path.exists(static_dir):
+    app.mount("/assets", StaticFiles(directory="static/assets"), name="assets")
 
-# 環境変数から本番/開発判定
-IS_PRODUCTION = os.getenv("RENDER") is not None  # Renderの場合
-BASE_URL = os.getenv("RENDER_EXTERNAL_URL", "http://localhost:8000")
 class CreateIssueRequest(BaseModel):
     repository: str
     title: str
@@ -51,21 +49,20 @@ class CreateIssueRequest(BaseModel):
 class GenerateIssuesRequest(BaseModel):
     markdown_content: str = ""
 
-@app.get("/api/health")
-async def health_check():
-    """ヘルスチェック用エンドポイント"""
-    return {"status": "ok", "message": "Backend is running"}
-
 @app.get("/api/config")
 async def get_config():
-    """フロントエンド用の設定を返す"""
+    """フロントエンド用設定"""
     return {
         "github_client_id": os.getenv("GITHUB_CLIENT_ID")
     }
 
+@app.get("/api/health")
+async def health_check():
+    return {"status": "ok", "message": "Server is running"}
+
+# 認証コールバックでのクッキー設定を修正
 @app.get("/api/auth/callback")
 async def auth_callback(code: str = None, error: str = None):
-    """GitHubからのコールバック処理"""
     if error:
         return RedirectResponse(url=f"/?error={error}", status_code=302)
     
@@ -73,24 +70,19 @@ async def auth_callback(code: str = None, error: str = None):
         return RedirectResponse(url="/?error=no_code", status_code=302)
     
     try:
-        # 認証コードをアクセストークンに交換
         access_token = await exchange_code_for_token(code)
-        
-        # ユーザー情報を取得
         user_data = await get_github_user(access_token)
         
-        # JWTトークンを作成（GitHubアクセストークンも含める）
         access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
         jwt_token = create_access_token(
             data={
                 "sub": str(user_data["id"]), 
                 "github_data": user_data,
-                "github_access_token": access_token  # GitHubトークンを保存
+                "github_access_token": access_token
             },
             expires_delta=access_token_expires
         )
         
-        # クッキーにJWTトークンを設定してリダイレクト
         response = RedirectResponse(url="/", status_code=302)
         response.set_cookie(
             key="access_token",
@@ -98,7 +90,7 @@ async def auth_callback(code: str = None, error: str = None):
             httponly=True,
             max_age=ACCESS_TOKEN_EXPIRE_MINUTES * 60,
             samesite="lax",
-            secure=IS_PRODUCTION  # 本番環境ではHTTPS必須
+            secure=IS_PRODUCTION  # 本番ではHTTPS
         )
         
         return response
@@ -106,6 +98,8 @@ async def auth_callback(code: str = None, error: str = None):
     except Exception as e:
         print(f"Auth error: {e}")
         return RedirectResponse(url=f"/?error=auth_failed", status_code=302)
+
+# 他のエンドポイントは既存のままでOK
 
 @app.get("/api/auth/me")
 async def get_current_user(request: Request):
