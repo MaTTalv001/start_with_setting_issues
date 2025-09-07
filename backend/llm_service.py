@@ -9,173 +9,237 @@ load_dotenv()
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 ISSUE_GENERATION_PROMPT = """
-あなたは経験豊富なソフトウェア開発のプロジェクトマネージャーです。
-以下の要件定義マークダウンを分析して、GitHubイシューとして登録すべき具体的なタスクを生成してください。
+あなたは経験豊富なソフトウェアエンジニア・テックリードです。
+以下の要件定義マークダウンを、実装者の視点で実際に開発可能な具体的なタスクに分解してください。
 
-## 要求事項:
-1. 各イシューは実装可能な具体的なタスクに分解してください
-2. タイトルは絵文字付きで簡潔に（例: 🐛 バグ修正: XXX、✨ 新機能: XXX、📚 ドキュメント: XXX）
-3. 本文にはタスクの詳細、受け入れ条件、実装のヒントを含めてください
-4. 適切なラベルを付けてください（bug, enhancement, documentation, testing, refactoring など）
-5. 優先度を1-5で設定してください（1が最高優先度、5が最低優先度）
-6. 最大60個程度のイシューに分解してください
+## エンジニア視点での分解方針:
+1. **実装の粒度**: 1-3日で完了できる具体的なタスクに分解
+2. **技術領域別分類**: フロントエンド、バックエンド、データベース、インフラ、テストなど
+3. **依存関係の明確化**: 前提となるタスクや並行実行可能なタスクを考慮
+4. **技術的詳細**: 使用技術、アーキテクチャ、実装パターンを具体化
+5. **コードレベルの受け入れ条件**: テスト可能で検証可能な条件
+
+## タスク分類指針:
+- 🏗️ **インフラ・環境構築**: Docker、CI/CD、デプロイメント
+- 🎨 **フロントエンド**: UI/UX、コンポーネント、状態管理
+- ⚙️ **バックエンド**: API、ビジネスロジック、認証
+- 🗄️ **データベース**: スキーマ設計、マイグレーション、クエリ最適化
+- 🧪 **テスト**: ユニット、統合、E2E、パフォーマンステスト
+- 📚 **ドキュメント**: API仕様、設計資料、運用手順
+- 🔧 **設定・最適化**: パフォーマンス、セキュリティ、監視
+
+## 粒度の目安:
+- ❌ 悪い例: "ユーザー認証機能の実装"
+- ✅ 良い例: "JWT認証ミドルウェアの実装"、"ログイン画面のUI作成"、"認証API のテスト作成"
 
 ## JSON出力形式:
-以下の正確なJSON構造で出力してください：
-
 {{
   "issues": [
     {{
-      "title": "🐛 バグ修正: XXX",
-      "body": "## 概要\\nタスクの詳細説明\\n\\n## 受け入れ条件\\n- [ ] 条件1\\n- [ ] 条件2\\n\\n## 実装のヒント\\n実装に関するアドバイス",
-      "labels": ["bug", "priority-high"],
+      "title": "🎨 フロントエンド: ログインフォームコンポーネント実装",
+      "body": "## 概要\\nログイン機能のフロントエンドコンポーネントを実装する\\n\\n## 技術詳細\\n- React + TypeScript\\n- フォームバリデーション (react-hook-form)\\n- Tailwind CSS でスタイリング\\n\\n## 実装内容\\n- メールアドレス・パスワード入力フィールド\\n- クライアントサイドバリデーション\\n- ローディング状態管理\\n- エラーメッセージ表示\\n\\n## 受け入れ条件\\n- [ ] 必須項目のバリデーションが動作する\\n- [ ] API呼び出し中はボタンが無効化される\\n- [ ] エラーレスポンスを適切に表示する\\n- [ ] レスポンシブ対応（モバイル・デスクトップ）\\n- [ ] アクセシビリティ要件を満たす（ARIA属性）\\n\\n## 実装ファイル\\n- `components/auth/LoginForm.tsx`\\n- `components/auth/LoginForm.test.tsx`\\n- `hooks/useAuth.ts`\\n\\n## 依存関係\\n- 前提: API認証エンドポイント実装完了\\n- 並行可能: パスワードリセット画面",
+      "labels": ["frontend", "component", "auth", "priority-high"],
       "priority": 1
     }}
   ]
 }}
 
-## 要件定義マークダウン:
+## 分解対象の要件定義:
 {markdown_content}
 
-**重要**: 必ず上記のJSON形式で回答してください。JSONのみを出力し、説明文やコードブロック（```）は含めないでください。
+**重要**: 
+- 15-25個程度の具体的なタスクに分解してください
+- 各タスクは1-3日で実装可能な粒度にしてください
+- 技術的な実装詳細を含めてください
+- 実際のファイル名やディレクトリ構造を想定してください
+- JSON形式のみで回答し、説明文は含めないでください
 """
 
 def validate_issue(issue: Any, index: int) -> Dict[str, Any] | None:
     """単一のイシューをバリデーション"""
-    if not isinstance(issue, dict):
-        print(f"Issue {index}: Not a dictionary")
+    try:
+        if not isinstance(issue, dict):
+            print(f"Issue {index}: Not a dictionary, got {type(issue)}")
+            return None
+        
+        # タイトルのバリデーション
+        title = issue.get("title")
+        if not isinstance(title, str) or not title.strip():
+            print(f"Issue {index}: Invalid title: {repr(title)}")
+            return None
+        
+        # 長すぎるタイトルを切り詰める
+        if len(title) > 200:
+            title = title[:197] + "..."
+        
+        # 本文のバリデーション
+        body = issue.get("body", "")
+        if not isinstance(body, str):
+            body = str(body) if body else "No description provided"
+        
+        # ラベルのバリデーション
+        labels = issue.get("labels", [])
+        if not isinstance(labels, list):
+            labels = []
+        else:
+            # 文字列のラベルのみを保持
+            labels = [str(label) for label in labels if isinstance(label, str) and label.strip()]
+        
+        # 優先度のバリデーション
+        priority = issue.get("priority", 3)
+        if not isinstance(priority, int):
+            try:
+                priority = int(priority)
+            except (ValueError, TypeError):
+                priority = 3
+        
+        # 優先度を1-5の範囲に制限
+        priority = max(1, min(5, priority))
+        
+        validated = {
+            "title": title.strip(),
+            "body": body,
+            "labels": labels,
+            "priority": priority
+        }
+        
+        print(f"Issue {index} validated successfully: {validated['title']}")
+        return validated
+        
+    except Exception as e:
+        print(f"Error validating issue {index}: {e}")
         return None
-    
-    # タイトルのバリデーション
-    title = issue.get("title")
-    if not isinstance(title, str) or not title.strip():
-        print(f"Issue {index}: Invalid title")
-        return None
-    
-    # 長すぎるタイトルを切り詰める
-    if len(title) > 200:
-        title = title[:197] + "..."
-    
-    # 本文のバリデーション
-    body = issue.get("body", "")
-    if not isinstance(body, str):
-        body = str(body) if body else "No description provided"
-    
-    # ラベルのバリデーション
-    labels = issue.get("labels", [])
-    if not isinstance(labels, list):
-        labels = []
-    else:
-        # 文字列のラベルのみを保持
-        labels = [str(label) for label in labels if isinstance(label, str) and label.strip()]
-    
-    # 優先度のバリデーション
-    priority = issue.get("priority", 3)
-    if not isinstance(priority, int):
-        try:
-            priority = int(priority)
-        except (ValueError, TypeError):
-            priority = 3
-    
-    # 優先度を1-5の範囲に制限
-    priority = max(1, min(5, priority))
-    
-    return {
-        "title": title.strip(),
-        "body": body,
-        "labels": labels,
-        "priority": priority
-    }
 
 def validate_issues_response(data: Any) -> List[Dict[str, Any]]:
     """イシューレスポンス全体をバリデーション"""
-    if not isinstance(data, dict):
-        print("Response is not a dictionary")
+    try:
+        print(f"Validating response data type: {type(data)}")
+        
+        if not isinstance(data, dict):
+            print(f"Response is not a dictionary, got: {type(data)}")
+            print(f"Response content: {repr(data)}")
+            return []
+        
+        print(f"Response keys: {list(data.keys())}")
+        
+        if "issues" not in data:
+            print("No 'issues' key found in response")
+            print(f"Available keys: {list(data.keys())}")
+            return []
+        
+        issues = data["issues"]
+        print(f"Issues type: {type(issues)}, length: {len(issues) if isinstance(issues, list) else 'N/A'}")
+        
+        if not isinstance(issues, list):
+            print(f"'issues' is not a list, got: {type(issues)}")
+            return []
+        
+        if len(issues) == 0:
+            print("No issues found in response")
+            return []
+        
+        if len(issues) > 20:
+            print(f"Too many issues ({len(issues)}), limiting to 20")
+            issues = issues[:20]
+        
+        validated_issues = []
+        for i, issue in enumerate(issues):
+            print(f"Validating issue {i}: {type(issue)}")
+            validated_issue = validate_issue(issue, i)
+            if validated_issue:
+                validated_issues.append(validated_issue)
+            else:
+                print(f"Skipping invalid issue at index {i}")
+        
+        print(f"Successfully validated {len(validated_issues)} out of {len(issues)} issues")
+        return validated_issues
+        
+    except Exception as e:
+        print(f"Error in validate_issues_response: {e}")
         return []
-    
-    if "issues" not in data:
-        print("No 'issues' key found in response")
-        return []
-    
-    issues = data["issues"]
-    if not isinstance(issues, list):
-        print("'issues' is not a list")
-        return []
-    
-    if len(issues) == 0:
-        print("No issues found in response")
-        return []
-    
-    if len(issues) > 20:
-        print(f"Too many issues ({len(issues)}), limiting to 20")
-        issues = issues[:20]
-    
-    validated_issues = []
-    for i, issue in enumerate(issues):
-        validated_issue = validate_issue(issue, i)
-        if validated_issue:
-            validated_issues.append(validated_issue)
-        else:
-            print(f"Skipping invalid issue at index {i}")
-    
-    return validated_issues
 
 async def generate_issues_from_markdown(markdown_content: str) -> List[Dict]:
     """マークダウンからイシューを生成（JSON mode + 手動バリデーション）"""
     
-    print("=" * 50)
-    print("Received markdown content:")
-    print(f"Length: {len(markdown_content)} characters")
-    print("First 200 characters:")
-    print(repr(markdown_content[:200]))
-    print("=" * 50)
+    print("=" * 60)
+    print("GENERATE ISSUES DEBUG START")
+    print(f"Input markdown length: {len(markdown_content)} characters")
+    print(f"First 300 characters: {repr(markdown_content[:300])}")
+    print(f"OpenAI API Key set: {bool(os.getenv('OPENAI_API_KEY'))}")
+    print("=" * 60)
+    
+    if not markdown_content or not markdown_content.strip():
+        print("Empty markdown content, using sample")
+        markdown_content = SAMPLE_MARKDOWN
     
     try:
-        # JSON modeでリクエスト
+        # OpenAI API call with enhanced error handling
+        print("Making OpenAI API call...")
+        
         response = client.chat.completions.create(
-            model="gpt-4o-mini",
+            model="gpt-4o",
             messages=[
                 {
                     "role": "user", 
                     "content": ISSUE_GENERATION_PROMPT.format(markdown_content=markdown_content)
                 }
             ],
-            max_tokens=2000,
-            temperature=0.3,
+            max_tokens=4000,
+            temperature=0.2,
             response_format={"type": "json_object"}  # JSON modeを有効化
         )
         
+        print("OpenAI API call successful")
         result_text = response.choices[0].message.content.strip()
         
-        print("=" * 50)
-        print("OpenAI response (JSON mode):")
-        print(result_text[:500] + "..." if len(result_text) > 500 else result_text)
-        print("=" * 50)
+        print("=" * 60)
+        print("OpenAI RAW RESPONSE:")
+        print(f"Response length: {len(result_text)} characters")
+        print("Full response:")
+        print(result_text)
+        print("=" * 60)
         
         # JSONをパース
         try:
+            print("Parsing JSON...")
             parsed_json = json.loads(result_text)
+            print(f"JSON parsed successfully. Type: {type(parsed_json)}")
+            print(f"Parsed JSON keys: {list(parsed_json.keys()) if isinstance(parsed_json, dict) else 'Not a dict'}")
+            
         except json.JSONDecodeError as e:
             print(f"JSON parsing failed: {e}")
-            print(f"Raw response: {repr(result_text[:200])}")
+            print(f"Failed at position: {e.pos}")
+            print(f"Raw response (first 500 chars): {repr(result_text[:500])}")
+            print("Using fallback issues")
             return get_fallback_issues()
         
         # 手動バリデーション
+        print("Starting validation...")
         validated_issues = validate_issues_response(parsed_json)
         
-        if validated_issues:
-            print(f"Successfully validated {len(validated_issues)} issues")
+        if validated_issues and len(validated_issues) > 0:
+            print(f"SUCCESS: Generated {len(validated_issues)} valid issues")
+            for i, issue in enumerate(validated_issues):
+                print(f"  {i+1}. {issue['title']}")
+            print("=" * 60)
             return validated_issues
         else:
-            print("No valid issues found, using fallback")
+            print("FAILURE: No valid issues found after validation, using fallback")
+            print("=" * 60)
             return get_fallback_issues()
         
     except Exception as e:
-        print(f"OpenAI API error: {e}")
+        print(f"EXCEPTION in OpenAI API call: {type(e).__name__}: {e}")
+        import traceback
+        print("Full traceback:")
+        print(traceback.format_exc())
+        print("Using fallback issues")
+        print("=" * 60)
         return get_fallback_issues()
 
 def get_fallback_issues() -> List[Dict]:
     """LLM呼び出しに失敗した場合のフォールバックイシュー"""
+    print("RETURNING FALLBACK ISSUES")
     return [
         {
             "title": "🔧 プロジェクト初期設定",
@@ -194,18 +258,6 @@ def get_fallback_issues() -> List[Dict]:
             "body": "## 概要\nアプリケーションの基本機能を実装します。\n\n## 受け入れ条件\n- [ ] 基本的なUI構造の作成\n- [ ] API エンドポイントの実装\n- [ ] データベース設計\n\n## 実装のヒント\nMVPアプローチで最小限の機能から始めてください。",
             "labels": ["enhancement", "priority-high"],
             "priority": 1
-        },
-        {
-            "title": "🧪 テスト環境構築",
-            "body": "## 概要\nテスト環境とテストケースを構築します。\n\n## 受け入れ条件\n- [ ] ユニットテストの設定\n- [ ] 結合テストの設定\n- [ ] CI/CDパイプラインの構築\n\n## 実装のヒント\nテスト駆動開発（TDD）を採用することを検討してください。",
-            "labels": ["testing", "priority-medium"],
-            "priority": 2
-        },
-        {
-            "title": "🚀 デプロイメント設定",
-            "body": "## 概要\n本番環境へのデプロイメント設定を行います。\n\n## 受け入れ条件\n- [ ] 本番環境の構築\n- [ ] 自動デプロイの設定\n- [ ] 監視・ログ設定\n\n## 実装のヒント\nDocker化とKubernetesの活用を検討してください。",
-            "labels": ["deployment", "priority-low"],
-            "priority": 3
         }
     ]
 
@@ -235,18 +287,6 @@ SAMPLE_MARKDOWN = """# ECサイト リニューアル プロジェクト
 - 合計金額計算
 - セッション維持
 
-### 4. 決済機能
-- クレジットカード決済
-- デジタルウォレット対応
-- 注文確認メール
-- 注文履歴
-
-### 5. 管理機能
-- 商品登録・編集
-- 注文管理
-- ユーザー管理
-- 売上レポート
-
 ## 技術要件
 
 ### フロントエンド
@@ -258,26 +298,6 @@ SAMPLE_MARKDOWN = """# ECサイト リニューアル プロジェクト
 - FastAPI + Python
 - PostgreSQL
 - Redis（セッション管理）
-
-### インフラ
-- Docker対応
-- AWS デプロイ
-- CI/CD パイプライン
-
-## 非機能要件
-
-### パフォーマンス
-- ページ読み込み時間 3秒以内
-- 同時アクセス 1000ユーザー対応
-
-### セキュリティ
-- HTTPS必須
-- XSS、SQLインジェクション対策
-- GDPR準拠
-
-### 可用性
-- 99.9%以上の稼働率
-- 定期バックアップ
 
 ## 制約事項
 - 開発期間: 3ヶ月
