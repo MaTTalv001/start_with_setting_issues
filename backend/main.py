@@ -1,5 +1,6 @@
 import os
 from dotenv import load_dotenv
+from pathlib import Path
 from fastapi import FastAPI, Request, HTTPException, status
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -36,9 +37,14 @@ app.add_middleware(
 )
 
 # 静的ファイル配信
-static_dir = "static"
-if os.path.exists(static_dir):
-    app.mount("/assets", StaticFiles(directory="static/assets"), name="assets")
+static_dir = Path(__file__).parent / "static"  # Pathオブジェクトとして定義
+if static_dir.exists():
+    app.mount("/assets", StaticFiles(directory=str(static_dir / "assets")), name="assets")
+    print(f"Static files mounted from: {static_dir}")
+else:
+    print(f"Static directory not found: {static_dir}")
+
+
 
 class CreateIssueRequest(BaseModel):
     repository: str
@@ -241,11 +247,11 @@ async def logout():
     response.delete_cookie(key="access_token")
     return response
 
-# React SPAのルーティング対応
+# SPAのルーティング対応
 @app.get("/{full_path:path}", response_class=HTMLResponse)
 async def serve_spa(full_path: str):
     """SPAのindex.htmlを返す"""
-    index_file = static_dir / "index.html"
+    index_file = static_dir / "index.html" 
     
     if index_file.exists():
         print(f"Serving index.html from: {index_file}")
@@ -263,11 +269,9 @@ async def serve_spa(full_path: str):
         <body>
             <h1>FastAPI Server is Running!</h1>
             <p>Frontend build not found. Please check the build process.</p>
-            <p>Static directory: {}</p>
-            <p>Looking for: {}</p>
         </body>
         </html>
-        """.format(static_dir, index_file))
+        """)
     
 @app.get("/api/debug")
 async def debug_info():
