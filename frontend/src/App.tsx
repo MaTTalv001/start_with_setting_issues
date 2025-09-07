@@ -39,6 +39,10 @@ function App() {
   const [generatingIssues, setGeneratingIssues] = useState(false);
   const [sampleMarkdown, setSampleMarkdown] = useState("");
 
+  // ファイルアップロード関連の状態
+  const [isDragging, setIsDragging] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+
   // モーダル関連の状態
   const [previewModal, setPreviewModal] = useState<{
     isOpen: boolean;
@@ -100,7 +104,6 @@ function App() {
       if (response.ok) {
         const data = await response.json();
         setSampleMarkdown(data.markdown);
-        setMarkdownContent(data.markdown);
       }
     } catch (error) {
       console.error("Failed to load sample markdown:", error);
@@ -142,6 +145,7 @@ function App() {
       setSelectedRepo(null);
       setSelectedIssues(new Set());
       setGeneratedIssues([]);
+      setMarkdownContent("");
     } catch (error) {
       console.error("Logout failed:", error);
     }
@@ -167,6 +171,109 @@ function App() {
     } finally {
       setLoadingRepos(false);
     }
+  };
+
+  // ファイル読み込み処理
+  const readFile = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const result = e.target?.result;
+        if (typeof result === "string") {
+          resolve(result);
+        } else {
+          reject(new Error("ファイルの読み込みに失敗しました"));
+        }
+      };
+      reader.onerror = () =>
+        reject(new Error("ファイルの読み込みに失敗しました"));
+      reader.readAsText(file, "UTF-8");
+    });
+  };
+
+  // ファイルバリデーション
+  const validateFile = (file: File): boolean => {
+    const allowedExtensions = [".md", ".txt", ".markdown"];
+    const maxSize = 5 * 1024 * 1024; // 5MB
+
+    // 拡張子チェック
+    const fileName = file.name.toLowerCase();
+    const hasValidExtension = allowedExtensions.some((ext) =>
+      fileName.endsWith(ext)
+    );
+
+    if (!hasValidExtension) {
+      setUploadError("対応ファイル形式: .md, .txt, .markdown");
+      return false;
+    }
+
+    // ファイルサイズチェック
+    if (file.size > maxSize) {
+      setUploadError("ファイルサイズは5MB以下にしてください");
+      return false;
+    }
+
+    setUploadError(null);
+    return true;
+  };
+
+  // ファイル処理
+  const handleFileUpload = async (file: File) => {
+    if (!validateFile(file)) {
+      return;
+    }
+
+    try {
+      const content = await readFile(file);
+      setMarkdownContent(content);
+      setUploadError(null);
+    } catch (error) {
+      setUploadError("ファイルの読み込みに失敗しました");
+      console.error("File reading error:", error);
+    }
+  };
+
+  // ドラッグ&ドロップ処理
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+
+    const files = Array.from(e.dataTransfer.files);
+    if (files.length > 0) {
+      handleFileUpload(files[0]);
+    }
+  };
+
+  // ファイル選択処理
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (files && files.length > 0) {
+      handleFileUpload(files[0]);
+    }
+    // ファイル選択をリセット（同じファイルを再選択できるように）
+    e.target.value = "";
+  };
+
+  // サンプルマークダウン読み込み
+  const loadSampleContent = () => {
+    setMarkdownContent(sampleMarkdown);
+    setUploadError(null);
+  };
+
+  // フォームクリア
+  const clearContent = () => {
+    setMarkdownContent("");
+    setUploadError(null);
   };
 
   const generateIssues = async () => {
@@ -499,23 +606,89 @@ function App() {
             <div className="card-body">
               <h3 className="card-title">📝 要件定義書</h3>
               <p className="text-sm text-gray-600 mb-4">
-                プロジェクトの要件をMarkdown形式で入力してください。
+                プロジェクトの要件をMarkdown形式で入力またはファイルアップロードしてください。
               </p>
 
+              {/* ファイルアップロードエリア */}
+              <div className="mb-4">
+                <div
+                  className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors cursor-pointer ${
+                    isDragging
+                      ? "border-primary bg-primary/10"
+                      : "border-gray-300 hover:border-primary hover:bg-primary/5"
+                  }`}
+                  onDragOver={handleDragOver}
+                  onDragLeave={handleDragLeave}
+                  onDrop={handleDrop}
+                  onClick={() =>
+                    document.getElementById("file-upload")?.click()
+                  }
+                >
+                  <input
+                    id="file-upload"
+                    type="file"
+                    accept=".md,.txt,.markdown"
+                    onChange={handleFileSelect}
+                    className="hidden"
+                  />
+                  <div className="flex flex-col items-center gap-2">
+                    <svg
+                      className="w-8 h-8 text-gray-400"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
+                      />
+                    </svg>
+                    <p className="text-sm text-gray-600">
+                      <span className="font-medium">
+                        クリックしてファイルを選択
+                      </span>
+                      または ドラッグ&ドロップ
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      対応形式: .md, .txt, .markdown (最大 5MB)
+                    </p>
+                  </div>
+                </div>
+
+                {uploadError && (
+                  <div className="alert alert-error mt-2">
+                    <span className="text-sm">{uploadError}</span>
+                  </div>
+                )}
+              </div>
+
+              {/* テキストエリア */}
               <textarea
                 className="textarea textarea-bordered w-full h-64 font-mono text-sm"
-                placeholder="要件をMarkdown形式で入力してください..."
+                placeholder="要件をMarkdown形式で入力するか、上記からファイルをアップロードしてください..."
                 value={markdownContent}
                 onChange={(e) => setMarkdownContent(e.target.value)}
               />
 
-              <div className="card-actions justify-between mt-4">
+              {/* アクションボタン */}
+              <div className="flex flex-wrap gap-2 mt-4">
                 <button
                   className="btn btn-ghost btn-sm"
-                  onClick={() => setMarkdownContent(sampleMarkdown)}
+                  onClick={loadSampleContent}
+                  disabled={!sampleMarkdown}
                 >
-                  サンプルを読み込み
+                  📄 サンプル要件を読み込み
                 </button>
+                <button
+                  className="btn btn-ghost btn-sm"
+                  onClick={clearContent}
+                  disabled={!markdownContent.trim()}
+                >
+                  🗑️ クリア
+                </button>
+                <div className="flex-1"></div>
                 <button
                   className="btn btn-primary"
                   onClick={generateIssues}
@@ -533,6 +706,13 @@ function App() {
                   )}
                 </button>
               </div>
+
+              {/* 文字カウント */}
+              {markdownContent && (
+                <div className="text-xs text-gray-500 mt-2 text-right">
+                  文字数: {markdownContent.length}
+                </div>
+              )}
             </div>
           </div>
 
@@ -553,9 +733,9 @@ function App() {
                 <div className="flex items-start gap-3">
                   <div className="badge badge-primary">2</div>
                   <div>
-                    <h4 className="font-semibold">要件を記述</h4>
+                    <h4 className="font-semibold">要件を入力</h4>
                     <p className="text-sm text-gray-600">
-                      プロジェクトの要件をMarkdown形式で記述します
+                      手動入力またはファイルアップロードで要件を設定
                     </p>
                   </div>
                 </div>
@@ -577,6 +757,32 @@ function App() {
                     <p className="text-sm text-gray-600">
                       選択したイシューをリポジトリに作成します
                     </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* ファイル形式の説明 */}
+              <div className="divider"></div>
+              <div className="alert alert-info">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  className="stroke-current shrink-0 w-6 h-6"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth="2"
+                    d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                  ></path>
+                </svg>
+                <div>
+                  <h3 className="font-bold">対応ファイル形式</h3>
+                  <div className="text-xs">
+                    .md, .txt, .markdown
+                    <br />
+                    最大ファイルサイズ: 5MB
                   </div>
                 </div>
               </div>
@@ -743,8 +949,8 @@ function App() {
                 className="btn btn-ghost"
                 onClick={() => {
                   if (previewModal.index !== null && previewModal.issue) {
-                    closePreviewModal(); // まずプレビューモーダルを閉じる
-                    openEditModal(previewModal.issue, previewModal.index); // eventパラメータなしで呼び出し
+                    closePreviewModal();
+                    openEditModal(previewModal.issue, previewModal.index);
                   }
                 }}
               >
