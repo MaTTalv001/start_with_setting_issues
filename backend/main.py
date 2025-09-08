@@ -105,7 +105,6 @@ async def auth_callback(code: str = None, error: str = None):
         print(f"Auth error: {e}")
         return RedirectResponse(url=f"/?error=auth_failed", status_code=302)
 
-# 他のエンドポイントは既存のままでOK
 
 @app.get("/api/auth/me")
 async def get_current_user(request: Request):

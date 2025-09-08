@@ -957,7 +957,6 @@ function App() {
         </div>
       )}
 
-      {/* 既存のPreview ModalとEdit Modalはそのまま */}
       {/* Preview Modal */}
       {previewModal.isOpen && previewModal.issue && (
         <div className="modal modal-open">
